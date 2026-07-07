@@ -702,6 +702,15 @@ def get_competitor_specs_leniently(part_input, competitor_name, all_dfs, digikey
 
     if comp_specs:
         print(f"Found match. The exact part name is '{exact_part_name}'. Fetching specs...")
+        ppp_val = str(comp_specs.get("Power Dissipation (Pd)", "-")).strip()
+        if ppp_val not in ("-", "", "None") and 'W' in ppp_val.upper() and 'A' not in ppp_val.upper():
+            # Normalize '200W' -> '200 W'
+            ppp_val = re.sub(r'(\d)(W)$', r'\1 \2', ppp_val, flags=re.IGNORECASE)
+            comp_specs["Power Dissipation (Pd)"] = ppp_val
+        elif ppp_val in ("-", "", "None"):
+            dk_specs = fetch_digikey_specs_from_csv(part_input, competitor_name, digikey_df)
+            if dk_specs and dk_specs.get("Power Dissipation (Pd)", "-") not in ("-", "", None):
+                comp_specs["Power Dissipation (Pd)"] = dk_specs["Power Dissipation (Pd)"]
     else:
         print(f"Could not find '{part_input}' in local database. Falling back to DigiKey CSV...")
         comp_specs = fetch_digikey_specs_from_csv(part_input, competitor_name, digikey_df)
