@@ -8,7 +8,8 @@ def find_package_matches(comp_pkg_alias, ti_df):
     pkg_col = next((c for c in ti_df.columns if 'package name' in c.lower()), None)
     if not pkg_col:
         print("! Warning: 'Package name' column not found in TI database for matching.")
-        return pd.DataFrame()
+        empty = pd.DataFrame()
+        return empty, empty
 
     print(f"Stage 1 - Filtering by competitor packages on {len(ti_df)} TI parts...")
 
@@ -394,10 +395,72 @@ def find_package_matches(comp_pkg_alias, ti_df):
         
         if not is_structured_pkg:
             all_ti_pkgs = get_all_normalized_ti_pkgs_from_cell(ti_pkgs_cell)
-            # SOT23 without pin count defaults to 3-pin — match SOT23 and SOT233
+
+            # Expand competitor packages with known equivalences so rules apply
+            # regardless of which competitor database or DigiKey the specs came from.
             expanded_comp_pkgs = set(valid_comp_pkgs_for_match)
-            if "SOT23" in expanded_comp_pkgs:
-                expanded_comp_pkgs.add("SOT233")
+
+            for cp in list(expanded_comp_pkgs):
+                # SOT23 without pin count defaults to 3-pin
+                if cp == "SOT23":
+                    expanded_comp_pkgs.add("SOT233")
+
+                # SOD882 variants -> DFN1006 (same footprint)
+                if re.match(r"SOD.?882", cp):
+                    expanded_comp_pkgs.add("DFN1006")
+
+                # DFN0402 / DFN-0402 -> DFN1006
+                if re.match(r"DFN.?0402", cp):
+                    expanded_comp_pkgs.add("DFN1006")
+
+                # SOT666 / SOT-666 -> SOT5X3
+                if re.match(r"SOT.?666", cp):
+                    expanded_comp_pkgs.add("SOT5X3")
+
+                # SOT363 / SOT-363 -> SC706
+                if re.match(r"SOT.?363", cp):
+                    expanded_comp_pkgs.add("SC706")
+
+                # SOT323 / SOT-323 -> SC703
+                if re.match(r"SOT.?323", cp):
+                    expanded_comp_pkgs.add("SC703")
+
+                # SOT143 / SOT-143 -> SOT234
+                if re.match(r"SOT.?143", cp):
+                    expanded_comp_pkgs.add("SOT234")
+
+                # SC88 / SC-88 -> SC706
+                if re.match(r"SC.?88", cp):
+                    expanded_comp_pkgs.add("SC706")
+
+                # 0603 / 603 bare token -> DFN0603
+                if re.match(r"^0?603$", cp):
+                    expanded_comp_pkgs.add("DFN0603")
+
+                # 0201 bare token -> DFN0603
+                if re.match(r"^0?201$", cp):
+                    expanded_comp_pkgs.add("DFN0603")
+
+                # 1006 bare token -> DFN1006
+                if re.match(r"^1006$", cp):
+                    expanded_comp_pkgs.add("DFN1006")
+
+                # X2SON -> DFN0603 (4-pin, but nearest TI family)
+                if "X2SON" in cp:
+                    expanded_comp_pkgs.add("DFN0603")
+
+                # MSOP -> VSSOP
+                if cp.startswith("MSOP"):
+                    expanded_comp_pkgs.add("VSSOP")
+
+                # WLCSP / DSBGA variants
+                if "WLCSP" in cp or "DSBGA" in cp:
+                    expanded_comp_pkgs.add("DSBGA")
+
+                # SOT886 / SOT-886 -> SOT886 (already normalized but ensure)
+                if re.match(r"SOT.?886", cp):
+                    expanded_comp_pkgs.add("SOT886")
+
             if any(comp_pkg in all_ti_pkgs for comp_pkg in expanded_comp_pkgs):
                 is_match = True
         if is_match:
@@ -408,16 +471,16 @@ def find_package_matches(comp_pkg_alias, ti_df):
     print(f"Found {len(package_matches_df)} TI parts with matching packages (Stage 1).")
 
     if package_matches_df.empty:
-        return package_matches_df, package_matches_df.copy() 
+        return package_matches_df, package_matches_df.copy(), package_matches_df.copy()
 
     if is_structured_pkg and comp_type in ["DFN", "DFN_JIANGSU", "DFN_LITTEL", "SOT", "SOTYXY", "DFN_DIODES", "NEXPERIA_SOT66Y", "SOTYXY_JIANGSU"]:
         if 'pins' not in comp_props:
-            return package_matches_df, package_matches_df.copy()
+            return package_matches_df, package_matches_df.copy(), package_matches_df.copy()
 
         pin_col = next((c for c in ti_df.columns if 'pin count' in c.lower()), None)
         if not pin_col or part_num_col is None:
             print("! Warning: 'Pin count' column not found in TI database. Skipping pin count filter.")
-            return package_matches_df, package_matches_df.copy()
+            return package_matches_df, package_matches_df.copy(), package_matches_df.copy()
 
         comp_pins = comp_props['pins']
         print(f"Stage 2 - Filtering by pin count ({comp_pins} pins)...")
@@ -435,8 +498,44 @@ def find_package_matches(comp_pkg_alias, ti_df):
         final_matches_df = package_matches_df.loc[list(set(stage2_indices))].copy()
         print(f"Found {len(final_matches_df)} TI parts after pin count filter (Stage 2).")
 
-        return package_matches_df, final_matches_df
-    
+        return package_matches_df, final_matches_df, final_matches_df
+
+    elif not is_structured_pkg:
+        # For unstructured matches, try to extract pin count from a trailing -N suffix
+        # on the raw package string (before normalize_package strips hyphens).
+        # e.g. "DFN2510-10" -> pin_count=10
+        comp_pin_count = None
+        for raw_cp in str(comp_pkg_alias).split(','):
+            raw_cp = raw_cp.strip()
+            pin_match = re.search(r'-(\d+)(?:[A-Za-z]*)$', raw_cp)
+            if pin_match:
+                comp_pin_count = int(pin_match.group(1))
+                break
+
+        if comp_pin_count is None:
+            # No pin info in unstructured string — all pkg matches are equal
+            print("Stage 2 - Pin count not determinable for unstructured package. Skipping.")
+            return package_matches_df, package_matches_df.copy(), package_matches_df.copy()
+
+        pin_col = next((c for c in ti_df.columns if 'pin count' in c.lower()), None)
+        if not pin_col:
+            return package_matches_df, package_matches_df.copy(), package_matches_df.copy()
+
+        print(f"Stage 2 - Filtering unstructured package by pin count ({comp_pin_count} pins)...")
+        stage2_indices = []
+        for index, ti_row in package_matches_df.iterrows():
+            pin_str = str(ti_row.get(pin_col, ""))
+            try:
+                pin_vals = [int(p.strip()) for p in pin_str.split(',') if p.strip()]
+            except ValueError:
+                pin_vals = []
+            if comp_pin_count in pin_vals:
+                stage2_indices.append(index)
+
+        final_matches_df = package_matches_df.loc[list(set(stage2_indices))].copy()
+        print(f"Found {len(final_matches_df)} TI parts after pin count filter (Stage 2).")
+        return package_matches_df, final_matches_df, final_matches_df
+
     else:
         print("Stage 2 - Pin count filter not applicable for this package type. Skipping.")
-        return package_matches_df, package_matches_df.copy()
+        return package_matches_df, package_matches_df.copy(), package_matches_df.copy()

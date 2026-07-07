@@ -574,7 +574,7 @@ def fetch_digikey_specs_from_csv(part_input, supplier_input, digikey_df):
         "IEC 61000-4-5": _clean_digikey_value(get("IEC 61000-4-5")),
         "IEC 61000-4-2": _clean_digikey_value(get("IEC 61000-4-2")),
         "Tolerance": get("Tolerance"),
-        "Power Dissipation (Pd)": (lambda v: (v + " W") if v != "-" else "-")(_clean_digikey_value(next((str(row[c]).strip() for c in digikey_df.columns if "peak pulse" in c.lower() and str(row.get(c, "")).strip().lower() not in ("", "nan", "none", "-")), "-"))),
+        "Power Dissipation (Pd)": _clean_digikey_value(get("Power - Peak Pulse")),
         "Price ($/ku)": get("Price ($/ku)"),
         "Grade": grade,
         "Source File": source_label,
@@ -1879,18 +1879,15 @@ def main():
                 if src_df is not None and not src_df.empty:
                     pn_col = next((c for c in src_df.columns if "product or part number" in c.lower()), None)
                     pin_col = next((c for c in src_df.columns if "pin count" in c.lower()), None)
-                    ppp_col = next((c for c in src_df.columns if "peak pulse" in c.lower()), None)
+                    ppp_col = next((c for c in src_df.columns if "peak pulse power" in c.lower()), None)
                     if pn_col:
                         match = src_df[src_df[pn_col].astype(str).str.strip() == part_number_str.strip()]
                         if not match.empty:
                             if pin_col:
                                 ti_pin_str = str(match.iloc[0][pin_col])
-                            if ppp_col:
+                            if ppp_col and "Power Dissipation (Pd)" not in ti_alt_specs:
                                 ppp_val = str(match.iloc[0][ppp_col])
-                                ppp_clean = ppp_val.strip() if ppp_val not in ("-", "nan", "") else "-"
-                                if ppp_clean != "-" and not ppp_clean.upper().endswith("W"):
-                                    ppp_clean = ppp_clean + " W"
-                                ti_alt_specs["Power Dissipation (Pd)"] = ppp_clean
+                                ti_alt_specs["Power Dissipation (Pd)"] = ppp_val if ppp_val not in ("-", "nan", "") else "-"
                 opn = _generate_ti_opn(part_number_str, ti_alt_specs.get("Package", "-"), ti_pin_str, comp_specs.get("Package", ""), comp_specs.get("Canonical Package"))
                 ti_alt_specs["OPN"] = opn
                 ti_alternatives_specs_list.append(ti_alt_specs)

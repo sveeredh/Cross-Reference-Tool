@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TI Cross Reference Tool</title>
+<style>
+  :root {
+    --red:    #cc0000;
+    --dark:   #1a1a1a;
+    --mid:    #555;
+    --light:  #f5f5f5;
+    --white:  #fff;
+    --border: #ddd;
+    --radius: 4px;
+    --mono:   'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--white); /* Corrected to white */
+    color: var(--dark);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 3px solid var(--red);
+    padding: 22px 32px;
+    background: var(--white); /* Corrected to white */
+  }
+  .logo-img {
+    height: 45px;
+  }
+
+  /* ── Main layout ── */
+  main {
+    max-width: 980px;
+    margin: 48px auto;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .page-title {
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--dark);
+    margin-bottom: 48px;
+    letter-spacing: .02em;
+  }
+
+  .form-container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 40px;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .input-section {
+    flex: 1;
+    transition: opacity 0.2s;
+  }
+  .input-section.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  
+  .or-divider {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--mid);
+    padding-top: 50px;
+  }
+
+  /* ── Form fields ── */
+  .field { margin-bottom: 20px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 8px;
+  }
+
+  .field input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .12s;
+    background-color: var(--white);
+  }
+  .field input[type="text"]:focus { border-color: var(--red); }
+
+  /* ── File drop zone ── */
+  .dropzone {
+    border: 2px dotted var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    background-color: var(--white);
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--red);
+    background: #fafafa;
+  }
+  .dropzone input[type="file"] { display: none; }
+  .dropzone .drop-icon { font-size: 32px; margin-bottom: 10px; }
+  .dropzone .drop-label { font-size: 14px; font-weight: 600; color: var(--dark); }
+  .dropzone .drop-sub { font-size: 12px; color: var(--mid); margin-top: 5px; }
+  
+  .file-info {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .file-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark);
+  }
+  .file-remove-btn {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red);
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .file-remove-btn:hover { text-decoration: underline; }
+
+  /* ── Submit button & Loading Bar ── */
+  .submit-section {
+    margin-top: 24px;
+    width: 100%;
+    text-align: center;
+    min-height: 80px;
+  }
+  .submit-btn {
+    background: var(--red);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 40px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: .03em;
+    transition: opacity .15s;
+    margin-bottom: 12px;
+  }
+  .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .submit-btn:not(:disabled):hover { opacity: .88; }
+  
+  .progress-bar-container {
+      display: none;
+      width: 100%;
+      max-width: 300px;
+      height: 12px;
+      background-color: #e9e9e9;
+      border-radius: 6px;
+      margin: 0 auto;
+  }
+  .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background-color: var(--red);
+      border-radius: 6px;
+      transition: width 0.25s linear;
+  }
+  .progress-text {
+      font-size: 12px;
+      color: var(--mid);
+      margin-top: 4px;
+      height: 16px;
+  }
+  .reset-btn {
+    background: none;
+    border: none;
+    color: var(--mid);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: block;
+    margin: 12px auto 0;
+  }
+  .reset-btn:hover:not(:disabled) {
+    color: var(--red);
+    text-decoration: underline;
+  }
+  .reset-btn:disabled {
+    color: #ccc;
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+
+  /* ── Status and Results Area ── */
+  .status-container {
+    margin-top: 48px;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .error-msg {
+    display: none;
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: #fff0f0;
+    border: 1px solid #f5c0c0;
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: #a00;
+  }
+  .error-msg.visible { display: block; }
+
+  .results-container { display: none; margin-top: 28px; }
+  .results-container.visible { display: block; }
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .results-header h3 {
+    font-size: 12px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--mid); margin: 0;
+  }
+  .results-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .action-btn {
+    background: var(--red);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .15s;
+  }
+  .action-btn:hover {
+    opacity: 0.88;
+  }
+  
+  .spec-table-wrap, .batch-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--white); }
+  .spec-table, .batch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .spec-table th, .batch-table th {
+    text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; padding: 10px 14px; background: var(--light);
+    border-bottom: 2px solid var(--border); white-space: nowrap;
+  }
+  .spec-table td, .batch-table td {
+    padding: 9px 14px; border-bottom: 1px solid var(--border);
+  }
+  .spec-table tr:last-child td, .batch-table tr:last-child td { border-bottom: none; }
+  .spec-table tr:hover td, .batch-table tr:hover td { background: #fafafa; }
+  .spec-table .param-name { font-size: 12px; font-weight: 600; color: var(--mid); white-space: nowrap; }
+  .spec-table .val, .batch-table td { font-family: var(--mono); }
+  .spec-table .val.dash, .batch-table td.dash { color: var(--fade); }
+  
+  /* --- See All / Fade Effect --- */
+  #batch-table-container.is-truncated .batch-table-wrap {
+    max-height: 240px; /* Approx 5 rows + header */
+    overflow: hidden;
+    position: relative;
+    border-bottom: none;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  #batch-table-container.is-truncated .batch-table-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(to bottom, transparent, var(--white));
+    pointer-events: none;
+  }
+  .see-all-container {
+    text-align: center;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+    padding: 10px;
+    background: var(--white);
+  }
+  .see-all-btn {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mid);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .see-all-btn:hover {
+    color: var(--red);
+  }
+
+  @media (max-width: 600px) {
+    .form-container { flex-direction: column; align-items: center; }
+    .or-divider { padding-top: 0; padding-bottom: 16px; }
+    .input-section { width: 100%; max-width: 350px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="ti.png" alt="Texas Instruments Logo" class="logo-img">
+</header>
+
+<main>
+  <h1 class="page-title">Cross Reference Tool</h1>
+
+  <div class="form-container">
+    <div class="input-section" id="single-cross-section">
+      <div class="field">
+        <label for="part">Enter a part name</label>
+        <input type="text" id="part" placeholder="e.g. ESD5Z12T1G">
+      </div>
+      <div class="field">
+        <label for="competitor">Enter the competitor</label>
+        <input type="text" id="competitor" placeholder="e.g. onsemi">
+      </div>
+    </div>
+
+    <div class="or-divider">OR</div>
+
+    <div class="input-section" id="batch-cross-section">
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this)">
+        <div class="drop-icon">📂</div>
+        <div class="drop-label">Choose an Excel input file</div>
+        <div class="drop-sub">or drag and drop here</div>
+        <div class="file-info" id="file-info">
+          <span class="file-name" id="file-name"></span>
+          <a href="#" class="file-remove-btn" id="file-remove-btn">(remove)</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-section">
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()" disabled>Generate Comparison</button>
+    <button class="reset-btn" id="reset-btn" onclick="resetForm()">Reset</button>
+
+    <div class="progress-bar-container" id="progress-container">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+        <div class="progress-text" id="progress-text"></div>
+    </div>
+  </div>
+
+  <div class="status-container">
+    <div class="error-msg" id="error-msg"></div>
+    <div class="results-container" id="results-container">
+      <div class="results-header">
+        <h3 id="results-title"></h3>
+        <div class="results-actions" id="results-actions">
+           <button class="action-btn" id="copy-btn" onclick="copyTableToClipboard()">Copy</button>
+           <button class="action-btn" id="download-btn" onclick="downloadCSV()">Download CSV</button>
+        </div>
+      </div>
+      <div class="spec-table-wrap" id="spec-results-wrapper"><table class="spec-table" id="spec-table"></table></div>
+      
+      <div id="batch-table-container">
+        <div class="batch-table-wrap" id="batch-results-wrapper">
+            <table class="batch-table" id="batch-table"></table>
+        </div>
+        <div class="see-all-container" id="see-all-container" style="display: none;">
+            <button class="see-all-btn" id="see-all-btn">See All</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+const API = "http://localhost:5000";
+
+// --- UI Elements ---
+const partInput = document.getElementById('part');
+const competitorInput = document.getElementById('competitor');
+const fileInput = document.getElementById('file-input');
+const submitBtn = document.getElementById('submit-btn');
+const resetBtn = document.getElementById('reset-btn');
+const singleSection = document.getElementById('single-cross-section');
+const batchSection = document.getElementById('batch-cross-section');
+const dropzone = document.getElementById("dropzone");
+const progressContainer = document.getElementById('progress-container');
+const progressBar = document.getElementById('progress-bar');
+const progressText = document.getElementById('progress-text');
+const fileInfo = document.getElementById('file-info');
+const fileNameEl = document.getElementById('file-name');
+const fileRemoveBtn = document.getElementById('file-remove-btn');
+const batchTableContainer = document.getElementById('batch-table-container');
+const seeAllContainer = document.getElementById('see-all-container');
+const seeAllBtn = document.getElementById('see-all-btn');
+
+// --- State Management ---
+let inputFile = null;
+let batchData = [];
+let specData = {};
+let pollInterval = null;
+
+// --- Event Listeners ---
+partInput.addEventListener('input', updateUIState);
+competitorInput.addEventListener('input', updateUIState);
+dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+dropzone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropzone.classList.remove("drag-over");
+  if (e.dataTransfer.files.length > 0) handleFile({ files: [e.dataTransfer.files[0]] });
+});
+fileRemoveBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    removeFile();
+});
+seeAllBtn.addEventListener('click', () => {
+    batchTableContainer.classList.remove('is-truncated');
+    seeAllContainer.style.display = 'none';
+});
+
+// --- UI State Logic ---
+function updateUIState() {
+  const isSingleValid = partInput.value.trim() !== '' && competitorInput.value.trim() !== '';
+  const isBatchValid = inputFile !== null;
+
+  batchSection.classList.toggle('disabled', isSingleValid);
+  singleSection.classList.toggle('disabled', isBatchValid);
+  submitBtn.disabled = !isSingleValid && !isBatchValid;
+}
+
+function handleFile(input) {
+  inputFile = input.files[0] || null;
+  if (inputFile) {
+    fileNameEl.textContent = inputFile.name;
+    fileInfo.style.display = 'flex';
+  } else {
+    removeFile();
+  }
+  updateUIState();
+}
+
+function removeFile() {
+    fileInput.value = '';
+    inputFile = null;
+    fileNameEl.textContent = '';
+    fileInfo.style.display = 'none';
+    updateUIState();
+}
+
+function resetForm() {
+    partInput.value = '';
+    competitorInput.value = '';
+    removeFile();
+    hideAllResults();
+    showError("");
+    updateUIState();
+    if (pollInterval) clearInterval(pollInterval);
+}
+
+// --- Submission Logic ---
+function handleSubmit() {
+    if (partInput.value.trim() !== '' && competitorInput.value.trim() !== '') {
+        submitSpec();
+    } else if (inputFile !== null) {
+        submitBatch();
+    }
+}
+
+// --- Helpers ---
+function showLoading(on) {
+  submitBtn.style.display = on ? 'none' : 'inline-block';
+  resetBtn.style.display = on ? 'none' : 'block';
+  progressContainer.style.display = on ? 'block' : 'none';
+  resetBtn.disabled = on;
+  if (!on) {
+    if (pollInterval) clearInterval(pollInterval);
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById("error-msg");
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function hideAllResults() {
+  document.getElementById("results-container").classList.remove("visible");
+  batchTableContainer.classList.remove('is-truncated');
+  seeAllContainer.style.display = 'none';
+}
+
+// --- Real Progress Bar Logic ---
+function pollForProgress(jobId) {
+    pollInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`${API}/batch_status/${jobId}`);
+            if (!res.ok) throw new Error("Could not get job status.");
+            const data = await res.json();
+            const percent = data.total > 0 ? (data.progress / data.total) * 100 : 0;
+            progressBar.style.width = `${percent}%`;
+            progressText.textContent = `Processing ${data.progress} of ${data.total}...`;
+
+            if (data.status === 'complete') {
+                clearInterval(pollInterval);
+                pollInterval = null;
+                showLoading(false);
+                batchData = data.results;
+                displayBatchResults(data.results);
+            }
+        } catch (error) {
+            clearInterval(pollInterval); pollInterval = null;
+            showError(error.message); showLoading(false);
+        }
+    }, 500);
+}
+
+// --- API Calls ---
+async function submitSpec() {
+  showError(""); hideAllResults(); showLoading(true);
+  try {
+    const res = await fetch(`${API}/specs`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ part: partInput.value.trim(), competitor: competitorInput.value.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Unknown server error");
+    specData = data;
+    displaySpecResults(data);
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function submitBatch() {
+  showError(""); hideAllResults(); showLoading(true);
+  const form = new FormData();
+  form.append("file", inputFile);
+  try {
+    const res = await fetch(`${API}/batch_start`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not start batch job.");
+    pollForProgress(data.job_id);
+  } catch (e) {
+    showError(e.message);
+    showLoading(false);
+  }
+}
+
+// --- Result Display ---
+function displaySpecResults(data) {
+  const table = document.getElementById("spec-table");
+  table.innerHTML = `
+    <thead><tr>
+      <th>Parameter</th><th>Competitor (${data.competitor_part.toUpperCase()})</th>
+      ${(data.alt_names || []).map(n => `<th class="ti-col">TI Alt (${n})</th>`).join('')}
+      ${Array(3 - (data.alt_names || []).length).fill('<th class="ti-col">TI Alt (—)</th>').join('')}
+    </tr></thead>
+    <tbody>${(data.rows || []).map(row => `
+      <tr>
+        <td class="param-name">${row.label}</td>
+        <td class="val ${row.comp === '-' ? 'dash' : ''}">${row.comp}</td>
+        <td class="val ${row.alt1 === '-' ? 'dash' : ''}">${row.alt1}</td>
+        <td class="val ${row.alt2 === '-' ? 'dash' : ''}">${row.alt2}</td>
+        <td class="val ${row.alt3 === '-' ? 'dash' : ''}">${row.alt3}</td>
+      </tr>`).join('')}
+    </tbody>`;
+  document.getElementById("results-title").textContent = "Comparison Table";
+  document.getElementById("spec-results-wrapper").style.display = 'block';
+  batchTableContainer.style.display = 'none';
+  document.getElementById('results-actions').style.display = 'flex';
+  document.getElementById('download-btn').style.display = 'none';
+  document.getElementById("results-container").classList.add("visible");
+}
+
+function displayBatchResults(results) {
+  const table = document.getElementById("batch-table");
+  table.innerHTML = `
+    <thead><tr>
+      <th>Part</th><th>Competitor</th><th>TI Alt 1</th><th>TI Alt 2</th><th>TI Alt 3</th>
+    </tr></thead>
+    <tbody>${results.map(row => `
+      <tr>
+        <td>${row.part || '-'}</td><td>${row.competitor || '-'}</td>
+        <td class="${!row.alt1 || row.alt1 === '-' ? 'dash' : ''}">${row.alt1 || '-'}</td>
+        <td class="${!row.alt2 || row.alt2 === '-' ? 'dash' : ''}">${row.alt2 || '-'}</td>
+        <td class="${!row.alt3 || row.alt3 === '-' ? 'dash' : ''}">${row.alt3 || '-'}</td>
+      </tr>`).join('')}
+    </tbody>`;
+  document.getElementById("results-title").textContent = `Batch Results (${results.length} rows)`;
+  document.getElementById("spec-results-wrapper").style.display = 'none';
+  batchTableContainer.style.display = 'block';
+  document.getElementById('results-actions').style.display = 'flex';
+  document.getElementById('download-btn').style.display = 'inline-block';
+  document.getElementById("results-container").classList.add("visible");
+
+  if (results.length > 5) {
+    batchTableContainer.classList.add('is-truncated');
+    seeAllContainer.style.display = 'block';
+  } else {
+    batchTableContainer.classList.remove('is-truncated');
+    seeAllContainer.style.display = 'none';
+  }
+}
+
+// --- Result Actions ---
+function copyTableToClipboard() {
+    const isBatchResult = batchData && batchData.length > 0;
+    const tableId = isBatchResult ? 'batch-table' : 'spec-table';
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const tableClone = table.cloneNode(true);
+    const container = document.createElement('div');
+    container.style.position = 'absolute'; container.style.left = '-9999px';
+    tableClone.setAttribute('border', '1'); tableClone.setAttribute('cellpadding', '5');
+    tableClone.setAttribute('cellspacing', '0'); tableClone.style.borderCollapse = 'collapse';
+    tableClone.style.fontFamily = 'Arial, sans-serif'; tableClone.style.fontSize = '12px';
+    tableClone.querySelectorAll('th, td').forEach(cell => {
+        cell.style.border = '1px solid #dddddd'; cell.style.textAlign = 'left';
+        cell.style.padding = '8px'; cell.style.whiteSpace = 'nowrap';
+    });
+    tableClone.querySelectorAll('th').forEach(th => {
+        th.style.backgroundColor = '#f2f2f2'; th.style.fontWeight = 'bold';
+    });
+    container.appendChild(tableClone); document.body.appendChild(container);
+    const blob = new Blob([container.innerHTML], { type: 'text/html' });
+    const clipboardItem = new ClipboardItem({ 'text/html': blob });
+    navigator.clipboard.write([clipboardItem]).then(() => {
+        const copyBtn = document.getElementById('copy-btn');
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = originalText; }, 1500);
+    }).catch(err => {
+        console.error('Failed to copy table as HTML: ', err);
+        alert('Could not copy table. This feature may not be supported in your browser.');
+    }).finally(() => { document.body.removeChild(container); });
+}
+
+function downloadCSV() {
+  if (!batchData || batchData.length === 0) return;
+  const header = "Part,Competitor,TI Alt 1,TI Alt 2,TI Alt 3\n";
+  const rows = batchData.map(r => 
+    [r.part, r.competitor, r.alt1, r.alt2, r.alt3]
+    .map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
+  triggerDownload("cross_results.csv", "text/csv;charset=utf-8;", header + rows);
+}
+
+function triggerDownload(filename, type, content) {
+  const blob = new Blob([content], { type: type });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// --- Initial UI State ---
+updateUIState();
+</script>
+</body>
+</html>
